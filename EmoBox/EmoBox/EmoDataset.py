@@ -4,9 +4,10 @@ import random
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
 import soundfile as sf
+import librosa
 import numpy as np
 import logging
-import torchaudio
+# import torchaudio
 SAMPLING_RATE=16000
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,7 @@ def split_sets(train_data, split_ratio):
     
     return train_data, valid_data
 
+# Modified to load audio with soundfile instead of torchaudio
 def read_wav(data):
     wav_path = data['wav']
     channel = data['channel']
@@ -130,15 +132,25 @@ def read_wav(data):
         start_time = None
         end_time = None    
     if start_time is not None and end_time is not None:
-        sample_rate = torchaudio.info(wav_path).sample_rate
+        # sample_rate = torchaudio.info(wav_path).sample_rate
+        sample_rate = sf.info(wav_path).samplerate
         frame_offset = int(start_time * sample_rate)
         num_frames = int(end_time * sample_rate) - frame_offset
-        wav, sr = torchaudio.load(wav_path, frame_offset = frame_offset, num_frames = num_frames)
+        # wav, sr = torchaudio.load(wav_path, frame_offset=frame_offset, num_frames=num_frames)
+        wav, sr = sf.read(wav_path, start=frame_offset, frames=num_frames,dtype='float32')
     else:    
-        wav, sr = torchaudio.load(wav_path)
+        # wav, sr = torchaudio.load(wav_path)
+        wav, sr = sf.read(wav_path, dtype='float32')
+
+    # Handle multi-channel audio (convert to mono)
+    if wav.ndim > 1:
+        wav = wav.mean(axis=-1)
+
     if sr != SAMPLING_RATE:
-        wav = torchaudio.functional.resample(wav, sr, SAMPLING_RATE)
-    wav = wav.view(-1)    
+        # wav = torchaudio.functional.resample(wav, sr, SAMPLING_RATE)
+        wav = librosa.resample(wav, orig_sr=sr, target_sr=SAMPLING_RATE)
+
+    # wav = wav.view(-1)    
     return wav 
 
 class EmoDataset(Dataset):
@@ -174,7 +186,7 @@ class EmoDataset(Dataset):
         label = data['emo']        
         return{
             "key": key,
-            "audio": audio.numpy(),
+            "audio": audio,
             "label": label,
             # other meta data can be added here
         }
