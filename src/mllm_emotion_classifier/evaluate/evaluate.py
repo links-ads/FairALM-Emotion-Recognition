@@ -1,0 +1,118 @@
+import os
+import numpy as np
+
+from collections import defaultdict
+from tqdm import tqdm
+from datetime import datetime
+from .metrics import ClassificationMetrics
+from .fairness import FairnessMetrics
+
+
+class Evaluator:
+
+    def __init__(self, output_dir="results"):
+
+        self.output_dir = output_dir
+        os.makedirs(output_dir, exist_ok=True)
+        
+        self.y_true = None
+        self.y_pred = None
+        self.sens_attr_dict = None
+
+        self.metrics_obj = None
+        self.fairness_obj = None
+
+        self.results = None
+    
+    def _collect_predictions(self, model, dataloader):
+        y_pred, y_true = [], []
+        sens_attr_dict = defaultdict(list)
+        
+        for batch_idx, (inputs, labels) in enumerate(tqdm(dataloader, desc="Inference")):
+            inputs = {k: v.to(model.device) for k, v in inputs.items()}
+            preds = model.predict(inputs)
+            y_pred.extend(preds)
+            y_true.extend(labels)
+            start_idx = batch_idx * dataloader.batch_size
+            for idx in range(start_idx, min(start_idx + len(labels), len(dataloader.dataset))):
+                sample = dataloader.dataset[idx]
+                for k, v in sample.items():
+                    if k not in {'audio', 'label', 'key', 'prompt'}:
+                        sens_attr_dict[k].append(v)
+            if batch_idx == 100: break
+                        
+        y_true = np.array(y_true)
+        y_pred = np.array(y_pred)
+        sens_attr_dict = dict(sens_attr_dict)
+        return y_true, y_pred, sens_attr_dict     
+    
+    def _compute_metrics(self, y_true, y_pred, sens_attr_dict):
+        metrics = {}
+
+        self.metrics_obj = ClassificationMetrics(y_true, y_pred)
+        metrics['metrics'] = self.metrics_obj.compute(
+            per_class=True, sens_attr_dict=sens_attr_dict
+        )
+        
+        if sens_attr_dict is None:
+            return metrics
+        
+        for attr_name, sens_attr_values in sens_attr_dict.items():
+            self.fairness_obj = FairnessMetrics(
+                y_true, y_pred, attr_name, sens_attr_values
+            )
+            metrics['fairness'][attr_name] = self.fairness_obj.compute()
+            
+        return metrics
+    
+    def evaluate(self, model, dataloader, fold=None):
+        model_name = model.name
+        dataset_name = dataloader.dataset.name
+        class_labels = set(dataloader.dataset.label_map.values())
+
+        print("\n" + "="*80)
+        print(f"Evaluating {model_name} on {dataset_name}")
+        print("="*80)
+        
+        y_true, y_pred, sens_attr_dict = self._collect_predictions(model, dataloader)
+        metrics = self._compute_metrics(y_true, y_pred, sens_attr_dict)
+        
+        self.y_true = y_true
+        self.y_pred = y_pred
+        self.sens_attr_dict = sens_attr_dict
+        self.results = {
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'dataset': dataset_name,
+            'model_name': model_name,
+            'fold': fold,
+            'num_samples': len(y_pred),
+            'num_valid_predictions': np.sum(y_pred != None),
+            'class_labels': list(class_labels),
+            **metrics
+        }
+        return self.results
+    
+    def print_results(self):
+        assert self.results is not None, "No results to print. Please run evaluate() first."
+        
+        print("\nEvaluation Results:")
+        print("-" * 80)
+        print(f"Dataset: {self.results['dataset']}")
+        print(f"Model: {self.results['model_name']}")
+        print(f"Fold: {self.results['fold']}")
+        print(f"Number of Samples: {self.results['num_samples']}")
+        print("\nOverall Metrics:")
+        for metric, value in self.results['metrics']['overall'].items():
+            print(f"  {metric}: {value:.4f}")
+        print("\nPer-Class Metrics:")
+        for metric, values in self.results['metrics'].items():
+            if metric != 'overall':
+                print(f"  {metric}:")
+                for cls, value in values.items():
+                    print(f"    {cls}: {value:.4f}")
+        print("\nFairness Metrics:")
+        for attr, metrics in self.results['fairness'].items():
+            print(f"  Sensitive Attribute: {attr}")
+            for metric, value in metrics.items():
+                print(f"    {metric}: {value:.4f}")
+        print("-" * 80)

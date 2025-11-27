@@ -30,7 +30,7 @@ class Qwen2AudioEmotionWrapper(BaseEmotionModel):
         checkpoint: str = "Qwen/Qwen2-Audio-7B",
         trust_remote_code: bool = True,
         torch_dtype: str = "auto",
-        max_new_tokens: int = 256,
+        max_new_tokens: int = 10,
         min_new_tokens: int = 1,
         do_sample: bool = False,
         class_labels = None,
@@ -38,6 +38,7 @@ class Qwen2AudioEmotionWrapper(BaseEmotionModel):
         **kwargs,
     ):
         super().__init__()
+        self.name = "Qwen2-Audio-7B"
         self.checkpoint = checkpoint
         self.trust_remote_code = trust_remote_code
         self.torch_dtype = torch_dtype
@@ -57,7 +58,7 @@ class Qwen2AudioEmotionWrapper(BaseEmotionModel):
         self.processor = AutoProcessor.from_pretrained(self.checkpoint)
         self.processor.tokenizer.padding_side = 'left'
 
-        self.class_labels = class_labels if class_labels is not None else self.DEFAULT_EMOTIONS
+        self.class_labels = list(class_labels) if class_labels is not None else self.DEFAULT_EMOTIONS
 
     def collate_fn(self, inputs):
         input_audios = [_['audio'] for _ in inputs]
@@ -84,17 +85,29 @@ class Qwen2AudioEmotionWrapper(BaseEmotionModel):
             clean_up_tokenization_spaces=False
         )
         return outputs
-    
-    def _parse_emotion_response(
-        self,
-        responses: List[str],
-    ) -> str:
-        # emotions = []
-        # for response in responses:
-        #     emotion = parse_emotion_response(response)
-        #     emotions.append(emotion)
-        # return emotions
-        return responses
+
+    def _parse_emotion_response(self, responses: List[str]) -> List[str]:
+        parsed_emotions = []
+        
+        for response in responses:
+            if not response or not isinstance(response, str):
+                parsed_emotions.append(None); continue
+            
+            response = response.strip()
+            found_label = "Happy"
+            
+            if response.isdigit():
+                idx = int(response)
+                if 0 <= idx < len(self.class_labels):
+                    found_label = self.class_labels[idx].capitalize()
+            else:
+                for label in self.class_labels:
+                    if label.lower() in response.lower():
+                        found_label = label.capitalize()
+            
+            parsed_emotions.append(found_label)
+        
+        return parsed_emotions
 
     def predict(
         self,

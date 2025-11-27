@@ -156,6 +156,7 @@ def read_wav(data):
 class EmoDataset(Dataset):
     def __init__(self, dataset, data_dir, meta_data_dir, fold=1, split="train"):
         super().__init__()
+        self.name = dataset
         self.data_dir = data_dir
         self.label_map = json.load(
             open(os.path.join(meta_data_dir, dataset, 'label_map.json'))
@@ -182,7 +183,6 @@ class EmoDataset(Dataset):
         if not os.path.exists(audio):
             raise FileNotFoundError(f"{audio} does not exist.")    
         audio = read_wav(data)
-        
         label = data['emo']        
         return{
             "key": key,
