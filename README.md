@@ -34,7 +34,7 @@ The following table shows the availability of sensitive attributes (demographic 
 | casia | - | - | - | - | - |
 | crema-d | 1 | 1 | 1 | 1 | 0 |
 | emns | 1 | 1 | 0 | 0 | 0 |
-| emodb | - | - | - | - | 0 |
+| emodb | 1 | 1 | 0 | 0 | 1 |
 | emov-db | 0 | 1 | 0 | 0 | 1 |
 | emovo | 0 | 1 | 0 | 0 | 0 |
 | emozionalmente | 1 | 1 | 0 | 0 | 1 |
