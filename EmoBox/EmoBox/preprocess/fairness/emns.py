@@ -1,106 +1,77 @@
-import os
-from collections import defaultdict
-import sys
 import pandas as pd
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from utils.preprocess_utils import *
-from tqdm import tqdm
-
-DATASET_NAME = "emns"
-SAMPLE_RATE = 48000
+from base import FairnessAnnotator
+from pathlib import Path
 
 
-def parse_filename(file, df):
-    str = f"wavs/{file}"
-    row = df.loc[df["audio_recording"] == str]
+LANGUAGE = "English"
+SPEAKER_DEMOGRAPHICS_FILE_PATH = "downloads/emns/cleaned_webm/metadata.csv"
 
-    if row.empty:
-        print(f"File {file} does not exist in metadata")
-        return
-    f_id = row["id"].values[0]
-    age = row["age"].values[0]
-    gender = row["gender"].values[0]
-    emotion = row["emotion"].values[0]
-    level = row["level"].values[0]
-    utterance = row["utterance"].values[0]
-    description = row["description"].values[0]
-
-    return {
-        "id": f_id,
-        "age": age,
-        "gd": gender,
-        "spk": 3,
-        "emotion": emotion if emotion != "Surprised" else "Surprise",
-        "level": level,
-        "transcript": utterance,
-        "description": description
-    }
+class EMNSFairnessAnnotator(FairnessAnnotator):
+    """Fairness preprocessor for EMNS dataset."""
     
-def process_emns(
-    dataset_path, output_base_dir="data/emns", output_format: str | list = "jsonl"
-):
-    os.makedirs(output_base_dir, exist_ok=True)
-    
-    data = {}
-    emotion_freq = defaultdict(int)
-    
-    all_files = [
-        os.path.join(root, file)
-        for root, _, files in os.walk(os.path.join(dataset_path, "cleaned_webm"))
-        for file in files
-        if file.lower().endswith(".webm")
-    ]
-    
-    metadata_df = pd.read_csv(os.path.join(dataset_path, "metadata.csv"), sep="|")
+    def __init__(self):
+        super().__init__(dataset_name="emns", num_folds=1)
+        self.demographics = self._read_demographics_file()
+        self.LANGUAGE = LANGUAGE
 
-    # Processing files with a progress bar
-    for file_path in tqdm(all_files, desc=f"Processing {DATASET_NAME} files"):
-        try:
-            waveform, sample_rate = load_audio(file_path)
-            num_frame = waveform.size(1)
-        except Exception as e:
-            print(f"Error processing file {file_path}: {e}")
-            continue
-        if sample_rate != SAMPLE_RATE:
-            print(f"Sample rate of {file_path} is not {SAMPLE_RATE}")
+    def _read_demographics_file(self):
+        """
+        Reads the demographics CSV file and returns a dictionary mapping audio file name to their demographics. The file is composed of the following columns: id|utterance|description|emotion|date_created|status|gender|age|level|audio_recording|user_id. It is separated by '|'.
 
-        parsed_info = parse_filename(os.path.basename(file_path), metadata_df)
-        sid = f"{DATASET_NAME}-{file_path.split('/')[-1].replace('.webm', '')}"
-        data[sid] = {
-            "audio": file_path,
-            "emotion": parsed_info["emotion"],
-            "channel": 1,
-            "sid": sid,
-            "sample_rate": sample_rate,
-            "num_frame": num_frame,
-            "spk": parsed_info["spk"],
-            "start_time": 0,
-            "end_time": num_frame / sample_rate,
-            "duration": num_frame / sample_rate,
+        Returns:
+            dict: A dictionary where keys are audio file names and values are dictionaries of demographics (i.e. gender, age).
+        """
+        df = pd.read_csv(SPEAKER_DEMOGRAPHICS_FILE_PATH, sep='|')
+        demographics_dict = {}
+        for _, row in df.iterrows():
+            audio_recording = row['audio_recording']
+            audio_recording = Path(audio_recording).stem
+            audio_recording = f"emns-{audio_recording}"
+            demographics_dict[audio_recording] = {
+                'Gender': row['gender'],
+                'Age': row['age'],
+            }
+        return demographics_dict
+    
+    def _extract_gender_from_key(self, key: str) -> str:
+        """
+        Extract gender from EMNS key (e.g., 'recorded_audio_0bJpmSM').
+        
+        The first four digits represent the audio file name. The information about demographics and sensityve attributes is stored in a separate CSV file.
+
+        Parameters:
+            key (str): The key string from which to extract gender.
+
+        Returns:
+            str: The gender of the speaker ('Male' or 'Female').
+        """
+        demographics = self.demographics.get(key, {})
+        return demographics.get('Gender', 'Unknown')
+    
+    def _extract_age_from_key(self, key: str) -> str:
+        """
+        Extract age from EMNS key (e.g., 'recorded_audio_0bJpmSM').
+        
+        The first four digits represent the audio file name. The information about demographics and sensityve attributes is stored in a separate CSV file.
+
+        Parameters:
+            key (str): The key string from which to extract age.
+
+        Returns:
+            str: The age of the speaker.
+        """
+        demographics = self.demographics.get(key, {})
+        return demographics.get('Age', 'Unknown')
+    
+    def extract_sensitive_attributes(self, entry: dict) -> dict:
+        """Extract sensitive attributes for EMNS."""
+        key = entry.get('key', '')
+        return {
+            'gender': self._extract_gender_from_key(key),
+            'age': self._extract_age_from_key(key),
+            'language': self.LANGUAGE,
         }
-        emotion_freq[parsed_info["emotion"]] += 1
-
-    if output_format == "mini_format" or "mini_format" in output_format:
-        write_mini_format(data, output_base_dir)
-
-    if output_format == "jsonl" or "jsonl" in output_format:
-        # Handle single-file JSON or JSONL output for the entire dataset
-        jsonl_file_path = os.path.join(output_base_dir, f"{DATASET_NAME}.jsonl")
-        write_jsonl(data, jsonl_file_path, DATASET_NAME)
-
-    if output_format == "json" or "json" in output_format:
-        # Handle single-file JSON output for the entire dataset
-        json_file_path = os.path.join(output_base_dir, f"{DATASET_NAME}.json")
-        write_json(data, json_file_path, DATASET_NAME)
-
-    if output_format == "split" or "split" in output_format:
-        write_folds(data, output_base_dir, DATASET_NAME)
-
-    print(f"Emotion frequency: {emotion_freq}")
-
 
 if __name__ == "__main__":
-    process_emns(
-        "downloads/emns", output_format=["mini_format", "jsonl", "json", "split"]
-    )
+    annotator = EMNSFairnessAnnotator()
+    annotator.add_sensitive_attributes_to_all_folds()

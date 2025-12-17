@@ -132,16 +132,29 @@ def read_wav(data):
         end_time = data['end_time']
     else:
         start_time = None
-        end_time = None    
+        end_time = None
+    
+    is_webm = wav_path.lower().endswith('.webm')
+    
     if start_time is not None and end_time is not None:
         # sample_rate = torchaudio.info(wav_path).sample_rate
         # num_frames = int(end_time * sample_rate) - frame_offset
         # wav, sr = torchaudio.load(wav_path, frame_offset=frame_offset, num_frames=num_frames)
 
-        sample_rate = sf.info(wav_path).samplerate
-        frame_offset = int(start_time * sample_rate)
-        num_frames = int(end_time * sample_rate) - frame_offset
-        wav, sr = sf.read(wav_path, start=frame_offset, frames=num_frames,dtype='float32')
+        if is_webm:
+            duration = end_time - start_time
+            wav, sr = librosa.load(
+                wav_path, 
+                sr=None, 
+                offset=start_time, 
+                duration=duration,
+                mono=False
+            )
+        else:
+            sample_rate = sf.info(wav_path).samplerate
+            frame_offset = int(start_time * sample_rate)
+            num_frames = int(end_time * sample_rate) - frame_offset
+            wav, sr = sf.read(wav_path, start=frame_offset, frames=num_frames,dtype='float32')
 
         # duration = end_time - start_time
         # wav, sr = librosa.load(
@@ -151,10 +164,13 @@ def read_wav(data):
         #     duration=duration,
         #     mono=True
         # )
-    else:    
-        # wav, sr = torchaudio.load(wav_path)
-        wav, sr = sf.read(wav_path, dtype='float32')
-        # wav, sr = librosa.load(wav_path, sr=SAMPLING_RATE, mono=True)
+    else:
+        if is_webm:
+            wav, sr = librosa.load(wav_path, sr=None, mono=False)
+        else:
+            # wav, sr = torchaudio.load(wav_path)
+            wav, sr = sf.read(wav_path, dtype='float32')
+            # wav, sr = librosa.load(wav_path, sr=SAMPLING_RATE, mono=True)
 
     # Handle multi-channel audio (convert to mono)
     if wav.ndim > 1:
