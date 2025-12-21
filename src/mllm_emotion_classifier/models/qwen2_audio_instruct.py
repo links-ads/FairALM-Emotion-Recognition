@@ -67,10 +67,7 @@ class Qwen2AudioInstructEmotionWrapper(BaseEmotionModel):
         input_audios = [_['audio'] for _ in inputs]
         labels = [_['label'] for _ in inputs]
 
-        if "letter" in self.prompt_name:
-            labels_str = ", ".join([f"{l}: {label}" for l, label in self.letter_to_label.items()])
-        else:
-            labels_str = ", ".join(self.class_labels)
+        labels_str = ", ".join(self.class_labels)
 
         conversations = []
         for _ in input_audios:
@@ -104,31 +101,6 @@ class Qwen2AudioInstructEmotionWrapper(BaseEmotionModel):
             clean_up_tokenization_spaces=False
         )
         return outputs
-
-    def _parse_emotion_response(self, responses: List[str]) -> List[str]:
-        parsed_emotions = []
-        
-        for response in responses:
-            response = response.strip()
-            found_label = 'Unknown'
-            
-            for label in self.class_labels:
-                if label.lower() in response.lower():
-                    found_label = label
-                    break
-            
-            # if found_label is None:
-            #     for letter, label in self.letter_to_label.items():
-            #         if letter == response.upper():
-            #             found_label = label
-            #             break
-            
-            if found_label == 'Unknown': 
-                logger.warning(f'Could not parse response: "{response}"')
-            
-            parsed_emotions.append(found_label)
-        
-        return parsed_emotions
 
     def predict(self, inputs: dict) -> List[Union[str, int]]:
         set_seed(self.seed)
