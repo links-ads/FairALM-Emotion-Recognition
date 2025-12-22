@@ -1,5 +1,5 @@
 from .flatten_dict import flatten_dict
-from .compute_fairness_from_df import add_fairness_metrics_by_emotion
+from .compute_fairness_from_df import add_fairness_metrics_to_df
 from .line_plot import plot_fairness_vs_hparam, plot_fairness_by_emotion
 from .bar_plot import plot_global_over_attribute_values, plot_classwise_over_attribute_values
 from .figure_collector import FigureCollector

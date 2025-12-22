@@ -1,7 +1,9 @@
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-def plot_fairness_vs_hparam(df, hparam, fairness_metrics, model, dataset, fold, show_std=True):
+def plot_fairness_vs_hparam(
+        df, hparam, fairness_metrics, model, dataset, fold, show_std=True, output_path=None
+    ):
     """
     Plot F1 Macro and selected fairness metrics vs hyperparameter.
     
@@ -23,14 +25,16 @@ def plot_fairness_vs_hparam(df, hparam, fairness_metrics, model, dataset, fold, 
     
     colors = {'statistical_parity': '#A23B72', 'equal_opportunity': '#F18F01', 
               'equal_non_opportunity': '#C73E1E', 'predictive_parity': '#6A4C93',
-              'negative_predictive_parity': '#1982C4', 'global_f1_macro': '#2E86AB'}
+              'negative_predictive_parity': '#1982C4', 'overall_accuracy_equality': '#8AC926',
+              'global_f1_macro': '#2E86AB'}
     markers = {'statistical_parity': 's', 'equal_opportunity': '^', 
                'equal_non_opportunity': 'v', 'predictive_parity': 'D',
-               'negative_predictive_parity': 'X', 'global_f1_macro': 'o'}
+               'negative_predictive_parity': 'X', 'overall_accuracy_equality': 'P',
+               'global_f1_macro': 'o'}
     
     fig, ax = plt.subplots(figsize=(8, 5))
     
-    # F1 Macro on shared axis
+    # Plot F1 Macro
     ax.plot(grouped[hparam], grouped['global_f1_macro_mean'], marker='o', linewidth=3, 
              markersize=10, label='F1 Macro', color='#2E86AB')
     if show_std:
@@ -38,8 +42,8 @@ def plot_fairness_vs_hparam(df, hparam, fairness_metrics, model, dataset, fold, 
                         grouped['global_f1_macro_mean'] - grouped['global_f1_macro_std'], 
                         grouped['global_f1_macro_mean'] + grouped['global_f1_macro_std'], 
                         alpha=0.3, color='#2E86AB')
-    
-    # Fairness metrics on same axis
+
+    # Plot fairness metrics
     for metric in fairness_metrics:
         mean_col = f'{metric}_mean'
         std_col = f'{metric}_std'
@@ -53,17 +57,20 @@ def plot_fairness_vs_hparam(df, hparam, fairness_metrics, model, dataset, fold, 
                             grouped[mean_col] + grouped[std_col], 
                             alpha=0.3, color=colors[metric])
     
-    ax.set_xlabel(hparam.capitalize(), fontsize=16, fontweight='bold')
-    ax.set_ylabel('Score', fontsize=16, fontweight='bold')
-    ax.tick_params(axis='both', labelsize=14)
+    ax.set_xlabel(hparam.capitalize(), fontsize=18, fontweight='bold')
+    ax.set_ylabel('Score', fontsize=18, fontweight='bold')
+    ax.tick_params(axis='both', labelsize=16)
     ax.set_ylim(0, 1.0)
     ax.grid(True, alpha=0.3, linestyle='--')
-    ax.legend(fontsize=12, loc='best')
+    ax.legend(fontsize=13, loc='best')
     
-    fold = fold if fold is not None else 'All'
-    plt.title(f'{model} on {dataset} Fold {fold}', fontsize=16, fontweight='bold', pad=20)
+    # fold = fold if fold is not None else 'All'
+    # plt.title(f'{model} on {dataset} Fold {fold}', fontsize=16, fontweight='bold', pad=20)
     plt.tight_layout()
     plt.show()
+    
+    if output_path is not None:
+        fig.savefig(output_path, dpi=300)
 
 def plot_fairness_by_emotion(df, emotions, hparam, fairness_metric, model, dataset, fold, show_std=True):
     """

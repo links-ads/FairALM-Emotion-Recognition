@@ -21,6 +21,8 @@ def plot_global_over_attribute_values(df, top_p, attribute, attribute_values, te
     
     assert metric in ['f1_macro', 'f1_weighted', 'accuracy_unweighted', 'accuracy_weighted'], "Invalid metric"
     
+    attribute_values = sorted(list(attribute_values))
+    
     cmap = cm.get_cmap('tab10')
     colors = {e: cmap(i % 10) for i, e in enumerate(attribute_values)}
     
