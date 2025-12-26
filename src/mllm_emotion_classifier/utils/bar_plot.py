@@ -3,7 +3,7 @@ import matplotlib.cm as cm
 import numpy as np
 
 def plot_global_over_attribute_values(df, top_p, attribute, attribute_values, temperature=False, metric='f1_macro', 
-                                  model=None, dataset=None, fold=None):
+                                  model=None, dataset=None, fold=None, outpath=None):
     """
     Plot bar comparison of a single global metric between Male and Female.
     
@@ -23,8 +23,8 @@ def plot_global_over_attribute_values(df, top_p, attribute, attribute_values, te
     
     attribute_values = sorted(list(attribute_values))
     
-    cmap = cm.get_cmap('tab10')
-    colors = {e: cmap(i % 10) for i, e in enumerate(attribute_values)}
+    # cmap = cm.get_cmap('tab10')
+    # colors = {e: cmap(i % 10) for i, e in enumerate(attribute_values)}
     
     data = []
     for value in attribute_values:
@@ -34,37 +34,40 @@ def plot_global_over_attribute_values(df, top_p, attribute, attribute_values, te
         else:
             data.append(0)
     
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig, ax = plt.subplots(figsize=(6, 4.5))
     
     x = np.arange(len(attribute_values))
     width = 0.6
     
-    bars = ax.bar(x, data, width, color=[colors[g] for g in attribute_values], alpha=0.8)
+    bars = ax.bar(x, data, width, color='#3498db', alpha=0.8)
     for bar in bars:
         height = bar.get_height()
         ax.text(bar.get_x() + bar.get_width()/2., height,
                 f'{height:.3f}',
-                ha='center', va='bottom', fontsize=12, fontweight='bold')
+                ha='center', va='bottom', fontsize=18, fontweight='bold')
     
-    metric_label = metric.replace('_', ' ').title()
-    ax.set_ylabel(metric_label, fontsize=14, fontweight='bold')
-    ax.set_title(f'{metric_label} Comparison by {attribute.title()}', fontsize=16, fontweight='bold', pad=20)
+    metric_label = metric.replace('_', '-').title()
+    ax.set_ylabel(metric_label, fontsize=18, fontweight='bold')
+    ax.set_title(f'{dataset}', fontsize=18, fontweight='bold', pad=20)
     ax.set_xticks(x)
     ax.set_xticklabels(attribute_values, fontsize=14)
     ax.set_ylim(0, 1.0)
     ax.grid(True, alpha=0.3, axis='y', linestyle='--')
-    ax.tick_params(axis='both', labelsize=12)
+    ax.tick_params(axis='both', labelsize=14)
     
     # if model and dataset:
     #     fold_str = fold if fold is not None else 'All'
     #     plt.suptitle(f'{model} on {dataset} Fold {fold_str}', fontsize=12, y=0.98)
     
+    if outpath:
+        plt.savefig(outpath, bbox_inches='tight', dpi=300)
+
     plt.tight_layout()
     plt.show()
 
 
 def plot_classwise_over_attribute_values(df, top_p, emotions, attribute, attribute_values, temperature=False, metric='accuracy', 
-                                      model=None, dataset=None, fold=None):
+                                      model=None, dataset=None, fold=None, outpath=None):
     """
     Plot bar comparison of emotion-specific metrics between Male and Female.
     
@@ -83,9 +86,9 @@ def plot_classwise_over_attribute_values(df, top_p, emotions, attribute, attribu
 
     assert metric in ['accuracy', 'true_positive_rate', 'false_positive_rate', 'f1_score'], "Invalid metric"
 
-    cmap = cm.get_cmap('tab10')
+    color_palette = [ '#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c']
     attribute_values = sorted(list(attribute_values))
-    colors = {e: cmap(i % 10) for i, e in enumerate(attribute_values)}
+    colors = {value: color_palette[i % len(color_palette)] for i, value in enumerate(attribute_values)}
     
     emotions_list = sorted(list(emotions))
     data = {value: [] for value in attribute_values}
@@ -98,7 +101,7 @@ def plot_classwise_over_attribute_values(df, top_p, emotions, attribute, attribu
             else:
                 data[value].append(0)
     
-    fig, ax = plt.subplots(figsize=(14, 7))
+    fig, ax = plt.subplots(figsize=(10, 4.5))
     
     x = np.arange(len(emotions_list))
     n_values = len(attribute_values)
@@ -114,24 +117,21 @@ def plot_classwise_over_attribute_values(df, top_p, emotions, attribute, attribu
             height = bar.get_height()
             if height > 0:
                 ax.text(bar.get_x() + bar.get_width()/2., height,
-                       f'{height:.2f}',
-                       ha='center', va='bottom', fontsize=12, fontweight='bold')
+                       f'{height:.3f}',
+                       ha='center', va='bottom', fontsize=10, fontweight='bold')
     
     metric_label = metric.replace('_', ' ').title()
-    ax.set_xlabel('Emotion', fontsize=18, fontweight='bold')
     ax.set_ylabel(metric_label, fontsize=18, fontweight='bold')
-    ax.set_title(f'{metric_label} Comparison by Emotion and {attribute.title()}', 
-                 fontsize=20, fontweight='bold', pad=20)
+    ax.set_title(f'{dataset}', fontsize=18, fontweight='bold', pad=20)
     ax.set_xticks(x)
-    ax.set_xticklabels(emotions_list, rotation=15, ha='right', fontsize=16)
-    ax.set_ylim(0, 1.1)  # Increased to accommodate labels
-    ax.legend(fontsize=14, title=attribute.title(), title_fontsize=16)
+    ax.set_xticklabels(emotions_list, fontsize=14)
+    ax.set_ylim(0, 1.0)
+    ax.legend(fontsize=12, title=attribute.title(), title_fontsize=14)
     ax.grid(True, alpha=0.3, axis='y', linestyle='--')
-    ax.tick_params(axis='both', labelsize=16)
+    ax.tick_params(axis='both', labelsize=14)
     
-    # if model and dataset:
-    #     fold_str = fold if fold is not None else 'All'
-    #     plt.suptitle(f'{model} on {dataset} Fold {fold_str}', fontsize=14, y=0.98)
-    
+    if outpath:
+        plt.savefig(outpath, bbox_inches='tight', dpi=300)
+
     plt.tight_layout()
     plt.show()
