@@ -76,6 +76,7 @@ def prepare_data_from_jsonl(
     # load in train & test data
     train_data = []
     test_data = []
+    valid_data = []
     with open(train_data_path) as f:
         for line in f:
             train_data.append(json.loads(line.strip()))
@@ -135,13 +136,16 @@ def read_wav(data):
         end_time = None
     
     is_webm = wav_path.lower().endswith('.webm')
+    is_mp4 = wav_path.lower().endswith('.mp4')
+    is_m4a = wav_path.lower().endswith('.m4a')
+    use_librosa = is_webm or is_mp4 or is_m4a
     
     if start_time is not None and end_time is not None:
         # sample_rate = torchaudio.info(wav_path).sample_rate
         # num_frames = int(end_time * sample_rate) - frame_offset
         # wav, sr = torchaudio.load(wav_path, frame_offset=frame_offset, num_frames=num_frames)
 
-        if is_webm:
+        if use_librosa:
             duration = end_time - start_time
             wav, sr = librosa.load(
                 wav_path, 
@@ -165,7 +169,7 @@ def read_wav(data):
         #     mono=True
         # )
     else:
-        if is_webm:
+        if use_librosa:
             wav, sr = librosa.load(wav_path, sr=None, mono=False)
         else:
             # wav, sr = torchaudio.load(wav_path)
@@ -174,7 +178,14 @@ def read_wav(data):
 
     # Handle multi-channel audio (convert to mono)
     if wav.ndim > 1:
-        wav = wav.mean(axis=-1)
+        # librosa returns (n_channels, n_samples), soundfile returns (n_samples, n_channels)
+        # Check which format we have by comparing dimensions
+        if wav.shape[0] < wav.shape[1]:
+            # librosa format: (channels, samples) - average along channel axis
+            wav = wav.mean(axis=0)
+        else:
+            # soundfile format: (samples, channels) - average along channel axis
+            wav = wav.mean(axis=-1)
 
     if sr != SAMPLING_RATE:
         # wav = torchaudio.functional.resample(wav, sr, SAMPLING_RATE)
@@ -229,7 +240,7 @@ if __name__ == "__main__":
     meta_data_dir = 'EmoBox/data'
     data_dir = './data/'
     # dataset = 'emozionalmente'
-    dataset = 'iemocap'
+    dataset = 'meld'
     fold = 1
     test_set = EmoDataset(dataset, data_dir, meta_data_dir, fold=fold, split='test')
     print(f'Num. training samples: {len(test_set)}')
