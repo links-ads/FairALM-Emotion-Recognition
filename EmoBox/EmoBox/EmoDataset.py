@@ -44,7 +44,17 @@ def replace_label(data, label_map, logger):
         label = label_map[emotion]
         instance['emo'] = label
         new_data.append(instance)
-    return new_data    
+    return new_data
+
+def filter_by_language(data, language):
+    filtered_data = []
+    for instance in data:
+        sensitive_attr = instance.get('sensitive_attr', {})
+        instance_lang = sensitive_attr.get('language', None)
+        if instance_lang == language:
+            filtered_data.append(instance)
+    print(f'Filtered from {len(data)} to {len(filtered_data)} samples for language: {language}')
+    return filtered_data
 
 def prepare_data_from_jsonl(
     dataset,
@@ -53,6 +63,7 @@ def prepare_data_from_jsonl(
     fold=1,
     split_ratio=[80, 20],
     seed=12,
+    language=None,
 ):
     # setting seeds for reproducible code.
     random.seed(seed)
@@ -94,6 +105,11 @@ def prepare_data_from_jsonl(
         valid_data = check_exists(valid_data, meta_data_dir, logger)
     else:
         train_data, valid_data = split_sets(train_data, split_ratio)
+
+    if language is not None:
+        train_data = filter_by_language(train_data, language)
+        valid_data = filter_by_language(valid_data, language)
+        test_data = filter_by_language(test_data, language)
         
     num_train_data = len(train_data)
     num_valid_data = len(valid_data)
@@ -123,7 +139,9 @@ def split_sets(train_data, split_ratio):
 
 # Modified to load audio with soundfile instead of torchaudio
 def read_wav(data):
-    wav_path = unicodedata.normalize('NFC', data['wav'])
+    wav_path = data['wav']
+    is_webm = wav_path.lower().endswith('.webm')
+    wav_path = unicodedata.normalize('NFC', wav_path)
     if not os.path.exists(wav_path):
         raise FileNotFoundError(f"{wav_path} does not exist.")
     channel = data['channel']
@@ -176,7 +194,6 @@ def read_wav(data):
             wav, sr = sf.read(wav_path, dtype='float32')
             # wav, sr = librosa.load(wav_path, sr=SAMPLING_RATE, mono=True)
 
-    # Handle multi-channel audio (convert to mono)
     if wav.ndim > 1:
         # librosa returns (n_channels, n_samples), soundfile returns (n_samples, n_channels)
         # Check which format we have by comparing dimensions
@@ -188,18 +205,12 @@ def read_wav(data):
             wav = wav.mean(axis=-1)
 
     if sr != SAMPLING_RATE:
-        # wav = torchaudio.functional.resample(wav, sr, SAMPLING_RATE)
         wav = librosa.resample(wav, orig_sr=sr, target_sr=SAMPLING_RATE)
-
-
-    # wav = wav.view(-1)    
-    return wav 
-
-    # librosa
-    # return wav.astype(np.float32)
+        
+    return wav.astype(np.float32)
 
 class EmoDataset(Dataset):
-    def __init__(self, dataset, data_dir, meta_data_dir, fold=1, split="train"):
+    def __init__(self, dataset, data_dir, meta_data_dir, fold=1, split="train", language=None):
         super().__init__()
         self.name = dataset
         self.data_dir = data_dir
@@ -207,7 +218,7 @@ class EmoDataset(Dataset):
             open(os.path.join(meta_data_dir, dataset, 'label_map.json'))
         )
         train_data, valid_data, test_data = prepare_data_from_jsonl(
-            dataset, meta_data_dir, self.label_map, fold=fold
+            dataset, meta_data_dir, self.label_map, fold=fold, language=language
         )
         if split == 'train':
             self.data_list = train_data

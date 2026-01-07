@@ -11,6 +11,8 @@ def parse_args():
     parser.add_argument("--dataset", type=str, default="iemocap")
     parser.add_argument("--data_dir", type=str, default="./")
     parser.add_argument("--meta_data_dir", type=str, default="EmoBox/data/")
+    parser.add_argument("--language", type=str, default=None)
+    parser.add_argument("--fold", type=int, default=-1)
     parser.add_argument("--num_samples", type=int, default=None)
     parser.add_argument("--model", type=str, default="qwen2-audio-instruct")
     parser.add_argument("--temperature", type=float, default=-1)
@@ -29,6 +31,7 @@ def run_single(args, fold, run_id, prompt):
         "--model", args.model,
         "--prompt", prompt,
         "--temperature", str(args.temperature),
+        "--language", str(args.language),
         "--top_p", str(args.top_p),
         "--run_id", str(run_id),
         "--output_dir", "outputs/"]
@@ -61,12 +64,19 @@ def main():
     outdir = Path(args.output_dir)
     outdir.mkdir(parents=True, exist_ok=True)
     
-    for fold in range(1, n_folds + 1):
-        print(f"\n=== Fold {fold}/{n_folds} ===")
+    if args.fold > 0:
+        print(f"\n=== Fold {args.fold}/{n_folds} ===")
         for run_id in range(args.runs):
             for prompt in args.prompt:
-                if not run_single(args, fold, run_id, prompt):
-                    raise RuntimeError(f"Run {run_id} Fold {fold} Prompt {prompt} failed.")
+                if not run_single(args, args.fold, run_id, prompt):
+                    raise RuntimeError(f"Run {run_id} Fold {args.fold} Prompt {prompt} failed.")
+    else:
+        for fold in range(1, n_folds + 1):
+            print(f"\n=== Fold {fold}/{n_folds} ===")
+            for run_id in range(args.runs):
+                for prompt in args.prompt:
+                    if not run_single(args, fold, run_id, prompt):
+                        raise RuntimeError(f"Run {run_id} Fold {fold} Prompt {prompt} failed.")
 
 if __name__ == "__main__":
     main()
