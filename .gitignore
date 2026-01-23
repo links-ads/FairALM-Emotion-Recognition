@@ -155,5 +155,11 @@ cython_debug/
 # IDE and editors
 .idea/
 .vscode/
+jobs/
+log/
 outputs-2/
 .kimi_venv/
+.voxtral_env/
+.salmonn_env/
+SALMONN_7B/salmonn_7b_v0.pth
+SALMONN_7B/BEATs_iter3_plus_AS2M_finetuned_on_AS2M_cpt2.pt

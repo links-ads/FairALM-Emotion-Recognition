@@ -65,6 +65,7 @@ def parse_args():
     parser.add_argument("--dataset", type=str, default="iemocap")
     parser.add_argument("--data_dir", type=str, default="./")
     parser.add_argument("--meta_data_dir", type=str, default="EmoBox/data/")
+    parser.add_argument("--audio_format", type=str, default="array")
     parser.add_argument("--fold", type=int, default=1)
     parser.add_argument("--num_samples", type=int, default=None)
     parser.add_argument("--model", type=str, default="qwen2-audio-instruct")
@@ -79,7 +80,15 @@ def main():
     
     print(f"Run {args.run_id} - Prompt: {args.prompt}")
     
-    test = EmoDataset(args.dataset, args.data_dir, args.meta_data_dir, fold=args.fold, split="test", language=args.language)
+    test = EmoDataset(
+        args.dataset,
+        args.data_dir,
+        args.meta_data_dir,
+        fold=args.fold,
+        split="test",
+        language=args.language,
+        audio_format=args.audio_format,
+    )
     
     model = ModelFactory.create(
         name=args.model,

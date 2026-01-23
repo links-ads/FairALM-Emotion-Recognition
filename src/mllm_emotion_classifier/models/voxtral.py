@@ -1,12 +1,13 @@
-"""AudioFlamingo3 wrapper for Emotion Recognition."""
+"""Voxtral wrapper for Emotion Recognition."""
 
+import os
 import logging
 import torch
 
 from typing import List, Union
 from .base import BaseEmotionModel
-from transformers import AudioFlamingo3ForConditionalGeneration, AutoProcessor, set_seed
-from .prompts.chat_flamingo import build_conversation
+from transformers import VoxtralForConditionalGeneration, VoxtralProcessor, set_seed
+from .prompts.chat_voxtral import build_conversation
 from .postprocess import postprocess_ser_response
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_EMOTIONS = ["Happy", "Sad", "Angry", "Neutral", "Fear", "Disgust", "Surprise"]
 
 
-class AudioFlamingo3EmotionWrapper(BaseEmotionModel):
+class VoxtralEmotionWrapper(BaseEmotionModel):
     
     def __init__(
         self,
@@ -35,8 +36,8 @@ class AudioFlamingo3EmotionWrapper(BaseEmotionModel):
         set_seed(seed)
         self.seed = seed
 
-        self.name = "audio-flamingo-3"
-        self.checkpoint = "nvidia/audio-flamingo-3-hf"
+        self.name = "voxtral"
+        self.checkpoint = "mistralai/Voxtral-Mini-3B-2507"
         self.trust_remote_code = trust_remote_code
         self.torch_dtype = getattr(torch, torch_dtype) if isinstance(torch_dtype, str) else torch_dtype
         self.max_new_tokens = max_new_tokens
@@ -45,15 +46,18 @@ class AudioFlamingo3EmotionWrapper(BaseEmotionModel):
         self.device = device
         self.temperature = temperature
         self.top_p = top_p
-        self.processor = AutoProcessor.from_pretrained(self.checkpoint)
-        self.model = AudioFlamingo3ForConditionalGeneration.from_pretrained(
+        # os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+        self.processor = VoxtralProcessor.from_pretrained(
+            self.checkpoint,
+            # trust_remote_code=True,
+            # use_fast=False 
+        )
+        self.model = VoxtralForConditionalGeneration.from_pretrained(
             self.checkpoint,
             device_map=self.device,
-            trust_remote_code=self.trust_remote_code,
-            torch_dtype=self.torch_dtype
+            dtype=self.torch_dtype
         )
         self.model.eval()
-        # self.model.to(self.device)
 
         self.class_labels = list(class_labels) if class_labels is not None else DEFAULT_EMOTIONS
         self.letter_to_label = {label[0].upper(): label for label in self.class_labels}
@@ -67,24 +71,11 @@ class AudioFlamingo3EmotionWrapper(BaseEmotionModel):
         labels_str = ", ".join(self.class_labels)
 
         conversations = []
-        for audio in input_audios:
-            conversation = build_conversation(self.prompt_name, labels_str, audio_format="array")
+        for audio_path in input_audios:
+            conversation = build_conversation(self.prompt_name, labels_str, audio_path)
             conversations.append(conversation)
 
-        texts = [
-            self.processor.apply_chat_template(conv, add_generation_prompt=True, tokenize=False)
-            for conv in conversations
-        ]
-
-        processed_inputs = self.processor(
-            text=texts,
-            audio=input_audios,
-            return_tensors="pt",
-            tokenize=True,
-
-            # add_generation_prompt=True,
-            return_dict=True,
-        )  # Remove .to(self.model.device) - tensors will be moved in evaluation loop
+        processed_inputs = self.processor.apply_chat_template(conversations)
         
         return processed_inputs, labels
     
@@ -93,7 +84,7 @@ class AudioFlamingo3EmotionWrapper(BaseEmotionModel):
         input_ids: torch.Tensor,
         output_ids: torch.Tensor,
     ) -> List[str]:
-        output_ids = output_ids[:, input_ids.size(1):]
+        output_ids = output_ids[:, input_ids.shape[1]:]
         outputs = self.processor.batch_decode(
             output_ids, 
             skip_special_tokens=True, 
@@ -103,9 +94,6 @@ class AudioFlamingo3EmotionWrapper(BaseEmotionModel):
 
     def predict(self, inputs: dict) -> List[Union[str, None]]:
         set_seed(self.seed)
-
-        if 'input_features' in inputs:
-            inputs['input_features'] = inputs['input_features'].to(self.torch_dtype)
         
         with torch.no_grad():
             output_ids = self.model.generate(

@@ -9,9 +9,8 @@ from .statistics import Statistics
 from ..utils import quantile_binning
 from .fairness import FairnessMetrics
 
-
 DATASET2BINS = {
-    'crema-d': {'age': 4},
+    'cremad': {'age': 4},
     'meld': {'age': 3},
 }
 class Evaluator:

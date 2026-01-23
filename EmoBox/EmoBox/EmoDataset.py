@@ -1,13 +1,18 @@
 import os
 import json
 import random
-from torch.utils.data import Dataset
-from torch.nn.utils.rnn import pad_sequence
 import soundfile as sf
 import librosa
 import numpy as np
 import logging
 import unicodedata
+import base64
+import io
+
+from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pad_sequence
+from transformers.audio_utils import load_audio_as
+
 # import torchaudio
 SAMPLING_RATE=16000
 logger = logging.getLogger(__name__)
@@ -209,11 +214,39 @@ def read_wav(data):
         
     return wav.astype(np.float32)
 
+def audio_to_base64(wav_path):
+    wav_path = unicodedata.normalize('NFC', wav_path)
+    
+    # Check if it's a format that needs librosa
+    is_webm = wav_path.lower().endswith('.webm')
+    is_mp4 = wav_path.lower().endswith('.mp4')
+    is_m4a = wav_path.lower().endswith('.m4a')
+    use_librosa = is_webm or is_mp4 or is_m4a
+    
+    if use_librosa:
+        # Load with librosa and convert to WAV format in memory
+        audio, sr = librosa.load(wav_path, sr=SAMPLING_RATE, mono=True)
+        
+        # Write to in-memory buffer as WAV
+        buffer = io.BytesIO()
+        sf.write(buffer, audio, sr, format='WAV', subtype='PCM_16')
+        buffer.seek(0)
+        
+        # Encode to base64
+        audio_base64 = base64.b64encode(buffer.read()).decode('utf-8')
+    else:
+        # For standard formats, use the transformers function
+        audio_base64 = load_audio_as(wav_path, return_format="base64", force_mono=True)
+    
+    return audio_base64
+
 class EmoDataset(Dataset):
-    def __init__(self, dataset, data_dir, meta_data_dir, fold=1, split="train", language=None):
+    def __init__(self, dataset, data_dir, meta_data_dir, fold=1, split="train", language=None, audio_format="array"):
         super().__init__()
+        assert audio_format in ["array", "path", "base64"], f'unsupported audio format {audio_format}'
         self.name = dataset
         self.data_dir = data_dir
+        self.audio_format = audio_format  # "array" or "path" or base64
         self.label_map = json.load(
             open(os.path.join(meta_data_dir, dataset, 'label_map.json'))
         )
@@ -235,7 +268,16 @@ class EmoDataset(Dataset):
     def __getitem__(self, idx):
         data = self.data_list[idx]
         key = data["key"]  
-        audio = read_wav(data)
+
+        if self.audio_format == "path":
+            audio = unicodedata.normalize('NFC', data['wav'])
+        elif self.audio_format == "base64":
+            wav_path = unicodedata.normalize('NFC', data['wav'])
+            # audio = load_audio_as(wav_path, return_format="base64", force_mono=True)
+            audio = audio_to_base64(wav_path)
+        else:
+            audio = read_wav(data)
+
         label = data['emo']
         sensitive_attr = data.get('sensitive_attr', {})
         return{

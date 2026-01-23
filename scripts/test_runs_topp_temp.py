@@ -14,6 +14,7 @@ def parse_args():
     parser.add_argument("--language", type=str, default=None)
     parser.add_argument("--fold", type=int, default=-1)
     parser.add_argument("--num_samples", type=int, default=None)
+    parser.add_argument("--audio_format", type=str, default="array")
     parser.add_argument("--model", type=str, default="qwen2-audio-instruct")
     parser.add_argument("--temperature", type=float, default=-1)
     parser.add_argument("--top_p", type=float, default=-1)
@@ -27,6 +28,7 @@ def run_single(args, fold, run_id, prompt):
         "--dataset", args.dataset,
         "--data_dir", args.data_dir,
         "--meta_data_dir", args.meta_data_dir,
+        "--audio_format", args.audio_format,
         "--fold", str(fold),
         "--model", args.model,
         "--prompt", prompt,
