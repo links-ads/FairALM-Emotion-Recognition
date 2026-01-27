@@ -2,10 +2,14 @@
 
 import logging
 import torch
+import tempfile
+import soundfile as sf
+import librosa
+import subprocess
+
 from typing import List, Union
 from .base import BaseEmotionModel
 from transformers import set_seed
-from .prompts.chat_qwen import build_conversation
 from .postprocess import postprocess_ser_response
 from SALMONN_7B.model import SALMONN
 
@@ -24,7 +28,7 @@ class SALMONNEmotionWrapper(BaseEmotionModel):
         vicuna_path: str = None,
         max_new_tokens: int = 50,
         temperature: float = 1.0,
-        top_p: float = 1.0,
+        top_p: float = 0.9,
         do_sample: bool = True,
         num_beams: int = 4,
         class_labels=None,
@@ -77,25 +81,36 @@ class SALMONNEmotionWrapper(BaseEmotionModel):
     def collate_fn(self, inputs):
         input_audios = [_['audio'] for _ in inputs]
         labels = [_['label'] for _ in inputs]
-        keys = [_.get('key', '') for _ in inputs]
+        return input_audios, labels 
 
-        return {
-            'audio': input_audios,
-            'labels': labels,
-            'keys': keys
-        }
-
-    def predict(self, inputs: dict) -> List[Union[str, int]]:
+    def predict(self, inputs: list) -> List[Union[str, int]]:
         """Generate predictions for a batch of inputs."""
-        input_audios = inputs['audio']
 
         prompt = self._build_prompt(self.class_labels)
         
         outputs = []
         with torch.no_grad():
-            for audio in input_audios:
+            for audio in inputs:
                 try:
                     wav_path = audio
+                    # Handle different audio formats
+                    if wav_path.lower().endswith(('.mp4', '.m4a', '.webm', '.flac', '.aac')):
+                        # Convert to WAV using ffmpeg
+                        try:
+                            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                                tmp_wav = tmp.name
+                            
+                            subprocess.run([
+                                'ffmpeg', '-i', wav_path, '-acodec', 'pcm_s16le', '-ar', '16000', tmp_wav, '-y'
+                            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+                            
+                            wav_path = tmp_wav
+                        except Exception as e:
+                            logger.warning(f"FFmpeg conversion failed: {e}. Trying librosa...")
+                            wav, sr = librosa.load(wav_path, sr=16000, mono=True)
+                            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                                sf.write(tmp.name, wav, 16000)
+                                wav_path = tmp.name
 
                     output = self.model.generate(
                         wav_path=wav_path,

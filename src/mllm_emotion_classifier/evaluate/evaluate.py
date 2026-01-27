@@ -35,7 +35,8 @@ class Evaluator:
         sens_attr_dict = defaultdict(list)
         
         for batch_idx, (inputs, labels) in enumerate(tqdm(dataloader, desc="Inference")):
-            inputs = {k: v.to(model.device) for k, v in inputs.items()}
+            if isinstance(inputs, dict):
+                inputs = {k: v.to(model.device) for k, v in inputs.items()}
             preds = model.predict(inputs)
             y_pred.extend(preds)
             y_true.extend(labels)

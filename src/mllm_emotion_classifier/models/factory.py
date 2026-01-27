@@ -1,12 +1,19 @@
-from .qwen2_audio import Qwen2AudioEmotionWrapper
-from .qwen2_audio_instruct import Qwen2AudioInstructEmotionWrapper
+try:
+    from .qwen2_audio import Qwen2AudioEmotionWrapper
+    from .qwen2_audio_instruct import Qwen2AudioInstructEmotionWrapper
+except:
+    pass
 try:
     from .audioflamingo3_instruct import AudioFlamingo3EmotionWrapper
 except:
-    # AudioFlamingo3EmotionWrapper = None
     pass
-from .voxtral import VoxtralEmotionWrapper
+try:
+    from .voxtral import VoxtralEmotionWrapper
+except:
+    pass
+
 from .salmonn import SALMONNEmotionWrapper
+
 from .base import BaseEmotionModel
 
 class ModelFactory:

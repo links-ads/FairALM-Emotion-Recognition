@@ -8,7 +8,7 @@ authors = [{name = "Federico D'Asaro", email = "federico.dasaro@linksfoundation.
 description = "A project for Fairness estimation in Emotion Recognition using multimodal large language models."
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",

@@ -11,7 +11,11 @@ import io
 
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
-from transformers.audio_utils import load_audio_as
+
+try:
+    from transformers.audio_utils import load_audio_as
+except :
+    pass
 
 # import torchaudio
 SAMPLING_RATE=16000
