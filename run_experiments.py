@@ -25,7 +25,7 @@ def parse_args():
     return parser.parse_args()
 
 def run_single(args, fold, run_id, prompt):
-    cmd = ["python", "scripts/utils/test_single_run_topp_temp.py", 
+    cmd = ["python", "utils/test_single_run_topp_temp.py", 
         "--dataset", args.dataset,
         "--data_dir", args.data_dir,
         "--meta_data_dir", args.meta_data_dir,

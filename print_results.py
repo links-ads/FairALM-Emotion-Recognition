@@ -1,7 +1,6 @@
-import os
-from pathlib import Path
-
 import pandas as pd
+
+from pathlib import Path
 from mllm_emotion_classifier.utils import add_fairness_metrics_to_df
 from EmoBox.EmoBox import EmoDataset
 
@@ -25,7 +24,7 @@ assert hparam in ['temperature', 'top_p'], "hparam must be either 'temperature' 
 
 datasets = ['iemocap', 'meld', 'cremad', 'ravdess', 'emovdb']
 metadata_dir = Path('EmoBox/data/')
-out_dir = Path('outputs-3') / "temperature_runs" if hparam == 'temperature' else Path('outputs-2') / "topp_runs"
+out_dir = Path('outputs') / "temperature_runs" if hparam == 'temperature' else Path('outputs') / "topp_runs"
 
 results = []
 
@@ -76,7 +75,7 @@ for dataset in datasets:
         ])
         results.append(f"{dataset.upper()} - {model}\n{best_row_str}\n\n")
 
-output_file = Path('best_results_no_postprocessing.txt')
+output_file = Path('outputs/best_results.txt')
 with open(output_file, 'w') as f:
     f.writelines(results)
 

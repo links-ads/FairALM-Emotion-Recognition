@@ -5,9 +5,6 @@ import torch
 import pandas as pd
 
 from pathlib import Path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
 from EmoBox.EmoBox import EmoDataset
 from mllm_emotion_classifier.models import ModelFactory
 from mllm_emotion_classifier.evaluate import Evaluator

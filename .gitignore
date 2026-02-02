@@ -159,7 +159,7 @@ jobs/
 log/
 outputs-2/
 outputs-3/
-outputs/
+outputs_/
 .kimi_venv/
 .voxtral_env/
 .salmonn_env/
@@ -169,3 +169,9 @@ SALMONN_7B/*.pth
 SALMONN_7B/*.ckpt
 SALMONN_7B/resource
 Kimi-Audio/
+notebooks_/
+scripts_/
+tests_/
+best_results_.txt/
+best_results_no_postprocessing_.txt
+
